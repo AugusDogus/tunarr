@@ -145,6 +145,10 @@ export class ProgramConverter {
       id: program.uuid,
       subtype: program.type,
       externalIds: seq.collect(externalIds, (eid) => this.toExternalId(eid)),
+      externalKey: program.externalKey,
+      externalSourceId: program.externalSourceId,
+      externalSourceName: program.externalSourceId,
+      externalSourceType: program.sourceType,
       ...omitBy(extraFields, isNil),
     };
   }
