@@ -1,19 +1,26 @@
-import { ContentProgram } from '@tunarr/types';
+import { ContentProgram, ExternalId } from '@tunarr/types';
 import { JellyfinItem } from '@tunarr/types/jellyfin';
-import { PlexEpisode, PlexMovie, PlexMusicTrack } from '@tunarr/types/plex';
+import {
+  PlexEpisode,
+  PlexMovie,
+  PlexMusicTrack,
+  PlexTerminalMedia,
+} from '@tunarr/types/plex';
 import {
   ContentProgramOriginalProgram,
   ContentProgramTypeSchema,
   ExternalSourceTypeSchema,
+  SingleExternalIdType,
 } from '@tunarr/types/schemas';
-import { find, first, isError } from 'lodash-es';
+import { find, first, isError, isNil } from 'lodash-es';
 import { P, match } from 'ts-pattern';
 import { createExternalId } from '../index.js';
-import { nullToUndefined } from '../util/index.js';
+import { nullToUndefined, seq } from '../util/index.js';
+import { parsePlexGuid } from '../util/plexUtil.js';
 
 type MediaSourceDetails = { id: string; name: string };
 
-export class ProgramMinter {
+export class ApiProgramMinter {
   /**
    * Creates an non-persisted, ephemeral ContentProgram for the given
    * EnrichedPlexMedia. These are handed off to the server to persist
@@ -22,7 +29,7 @@ export class ProgramMinter {
    * parts of the UI
    */
 
-  mintProgram(
+  static mintProgram(
     mediaSource: { id: string; name: string },
     program: ContentProgramOriginalProgram,
   ): ContentProgram {
@@ -45,8 +52,7 @@ export class ProgramMinter {
           sourceType: 'jellyfin',
           program: { Type: P.union('Movie', 'Audio', 'Episode') },
         },
-        ({ program }) =>
-          this.mintRawProgramForJellyfinItem(mediaSource, program),
+        ({ program }) => this.mintProgramForJellyfinItem(mediaSource, program),
       )
       .otherwise(() => new Error('Unexpected program type'));
     if (isError(ret)) {
@@ -55,7 +61,7 @@ export class ProgramMinter {
     return ret;
   }
 
-  private mintFromPlexMovie(
+  private static mintFromPlexMovie(
     server: MediaSourceDetails,
     plexMovie: PlexMovie,
   ): ContentProgram {
@@ -82,7 +88,7 @@ export class ProgramMinter {
     };
   }
 
-  private mintFromPlexEpisode(
+  private static mintFromPlexEpisode(
     server: MediaSourceDetails,
     plexEpisode: PlexEpisode,
   ): ContentProgram {
@@ -121,7 +127,7 @@ export class ProgramMinter {
     };
   }
 
-  private mintFromPlexMusicTrack(
+  private static mintFromPlexMusicTrack(
     server: MediaSourceDetails,
     plexTrack: PlexMusicTrack,
   ): ContentProgram {
@@ -161,7 +167,7 @@ export class ProgramMinter {
     };
   }
 
-  private mintRawProgramForJellyfinItem(
+  private static mintProgramForJellyfinItem(
     server: MediaSourceDetails,
     item: Omit<JellyfinItem, 'Type'> & { Type: 'Movie' | 'Episode' | 'Audio' },
   ): ContentProgram {
@@ -206,8 +212,109 @@ export class ProgramMinter {
     };
   }
 
-  // private mintPlexProgramParentExternalIds(
-  //   server: MediaSourceDetails,
-  //   item: PlexEpisode | PlexMusicTrack,
-  // ) {}
+  mintExternalIds(
+    serverName: string,
+    programId: string,
+    originalProgram: ContentProgramOriginalProgram,
+  ) {
+    return match(originalProgram)
+      .with({ sourceType: 'plex' }, ({ program: originalProgram }) =>
+        this.mintExternalIdsForPlex(serverName, originalProgram),
+      )
+      .with({ sourceType: 'jellyfin' }, ({ program: originalProgram }) =>
+        this.mintExternalIdsForJellyfin(serverName, originalProgram),
+      )
+      .exhaustive();
+  }
+
+  mintExternalIdsForPlex(
+    serverName: string,
+    media: PlexTerminalMedia,
+  ): ExternalId[] {
+    const file = first(first(media.Media)?.Part ?? []);
+    const ratingId = {
+      source: 'plex',
+      id: media.ratingKey,
+      // uuid: v4(),
+      // createdAt: +dayjs(),
+      // updatedAt: +dayjs(),
+      // externalKey: media.ratingKey,
+      // sourceType: ProgramExternalIdType.PLEX,
+      sourceId: serverName,
+      // programUuid: programId,
+      // externalSourceId: serverName,
+      // externalFilePath: file?.key,
+      // directFilePath: file?.file,
+      type: 'multi',
+    } satisfies ExternalId;
+
+    const guidId = {
+      // uuid: v4(),
+      // createdAt: +dayjs(),
+      // updatedAt: +dayjs(),
+      type: 'single',
+      source: 'plex-guid',
+      id: media.guid,
+      // sourceType: ProgramExternalIdType.PLEX_GUID,
+      // programUuid: programId,
+    } satisfies ExternalId;
+
+    const externalGuids = seq.collect(media.Guid, (externalGuid) => {
+      // Plex returns these in a URI form, so we can attempt to parse them
+      return parsePlexGuid(externalGuid.id);
+    });
+
+    return [ratingId, guidId, ...externalGuids];
+  }
+
+  mintJellyfinExternalId(serverName: string, media: JellyfinItem) {
+    return {
+      // uuid: v4(),
+      // createdAt: +dayjs(),
+      // updatedAt: +dayjs(),
+      type: 'multi',
+      id: media.Id,
+      source: 'jellyfin',
+      // sourceType: ProgramExternalIdType.JELLYFIN,
+      // programUuid: programId,
+      sourceId: serverName,
+    } satisfies ExternalId;
+  }
+
+  mintExternalIdsForJellyfin(serverName: string, media: JellyfinItem) {
+    const ratingId = this.mintJellyfinExternalId(serverName, media);
+
+    const externalGuids = seq.collectMapValues(
+      media.ProviderIds,
+      (externalGuid, guidType) => {
+        if (isNil(externalGuid)) {
+          return;
+        }
+
+        let source: SingleExternalIdType | null = null;
+        const normalizedType = guidType.toLowerCase();
+        switch (normalizedType) {
+          case 'tmdb':
+          case 'imdb':
+          case 'tvdb':
+            source = normalizedType as SingleExternalIdType;
+            break;
+          default:
+            return null;
+        }
+
+        if (source) {
+          return {
+            id: externalGuid,
+            source,
+            type: 'single',
+          } satisfies ExternalId;
+        }
+
+        return;
+      },
+    );
+
+    return [ratingId, ...externalGuids];
+  }
 }

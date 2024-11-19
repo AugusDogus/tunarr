@@ -4,7 +4,7 @@ import {
   SingleExternalIdType,
   type ExternalIdType,
 } from '@tunarr/types/schemas';
-export { ProgramMinter } from './services/ProgramMinter.js';
+export { ApiProgramMinter } from './services/ProgramMinter.js';
 export { scheduleRandomSlots } from './services/RandomSlotsService.js';
 export { scheduleTimeSlots } from './services/TimeSlotService.js';
 export { mod as dayjsMod } from './util/dayjsExtensions.js';
