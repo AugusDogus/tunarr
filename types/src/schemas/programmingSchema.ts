@@ -149,6 +149,7 @@ export const ContentProgramSchema = CondensedContentProgramSchema.extend({
   // DEPRECATED: Use parentId/grandparentId
   showId: z.string().optional(),
   seasonId: z.string().optional(),
+  // Deprecated use parent.index
   seasonNumber: z.number().optional(),
   // DEPRECATED: Use index
   episodeNumber: z.number().optional(),

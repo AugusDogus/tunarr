@@ -1,4 +1,5 @@
-import { forAddedMediaType, programMinter, unwrapNil } from '@/helpers/util.ts';
+import { forAddedMediaType, unwrapNil } from '@/helpers/util.ts';
+import { ApiProgramMinter } from '@tunarr/shared';
 import { forProgramType } from '@tunarr/shared/util';
 import {
   Channel,
@@ -246,13 +247,13 @@ export const addMediaToCurrentChannel = (programs: AddedMedia[]) =>
       const allNewPrograms = map(programs, (item) =>
         match(item)
           .with({ type: 'plex', media: P.select() }, (plexItem) =>
-            programMinter.mintProgram(
+            ApiProgramMinter.mintProgram(
               { id: plexItem.serverId, name: plexItem.serverName },
               { program: plexItem, sourceType: 'plex' },
             ),
           )
           .with({ type: 'jellyfin', media: P.select() }, (jfItem) =>
-            programMinter.mintProgram(
+            ApiProgramMinter.mintProgram(
               { id: jfItem.serverId, name: jfItem.serverName },
               { program: jfItem, sourceType: 'jellyfin' },
             ),

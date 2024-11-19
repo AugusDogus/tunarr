@@ -1,7 +1,8 @@
-import { programMinter, zipWithIndex } from '@/helpers/util.ts';
+import { zipWithIndex } from '@/helpers/util.ts';
 import { emptyEntityEditor } from '@/store/entityEditor/util.ts';
 import useStore from '@/store/index.ts';
 import { AddedMedia } from '@/types/index.ts';
+import { ApiProgramMinter } from '@tunarr/shared';
 import { FillerList, FillerListProgramming } from '@tunarr/types';
 import { map, merge } from 'lodash-es';
 import { P, match } from 'ts-pattern';
@@ -13,13 +14,13 @@ export const addMediaToCurrentFillerList = (programs: AddedMedia[]) =>
       const convertedPrograms = map(programs, (item) =>
         match(item)
           .with({ type: 'plex', media: P.select() }, (plexItem) =>
-            programMinter.mintProgram(
+            ApiProgramMinter.mintProgram(
               { id: plexItem.serverId, name: plexItem.serverName },
               { program: plexItem, sourceType: 'plex' },
             ),
           )
           .with({ type: 'jellyfin', media: P.select() }, (jfItem) =>
-            programMinter.mintProgram(
+            ApiProgramMinter.mintProgram(
               { id: jfItem.serverId, name: jfItem.serverName },
               { program: jfItem, sourceType: 'jellyfin' },
             ),

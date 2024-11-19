@@ -1,9 +1,8 @@
-import { isContentProgram } from '@tunarr/types';
 import _ from 'lodash-es';
 import { setCurrentLineup } from '../../store/channelEditor/actions.ts';
 import useStore from '../../store/index.ts';
 import { materializedProgramListSelector } from '../../store/selectors.ts';
-import { UIChannelProgram } from '../../types/index.ts';
+import { UIChannelProgram, isUIContentProgram } from '../../types/index.ts';
 
 export function useCyclicShuffle() {
   const programs = useStore(materializedProgramListSelector);
@@ -15,8 +14,12 @@ export function useCyclicShuffle() {
 
     // Group shows by showId
     const sortedPrograms = _.chain(programs)
-      .filter(isContentProgram)
-      .orderBy(['showId', 'seasonNumber', 'episodeNumber'])
+      .filter(isUIContentProgram)
+      .orderBy((p) => {
+        const seasonNumber = p.parent?.index ?? p.seasonNumber;
+        const episodeNumber = p.index ?? p.episodeNumber;
+        return [p.showId, seasonNumber, episodeNumber];
+      })
       .value();
 
     const groupedContent = _.groupBy(sortedPrograms, (program) => {

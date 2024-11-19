@@ -81,7 +81,7 @@ export class ApiProgramMinter {
       title: plexMovie.title,
       subtype: 'movie',
       persisted: false,
-      externalIds: [], // mint,
+      externalIds: this.mintExternalIdsForPlex(server.name, plexMovie),
       externalSourceId: server.name,
       uniqueId: id,
       id,
@@ -120,7 +120,7 @@ export class ApiProgramMinter {
       summary: plexEpisode.summary,
       title: plexEpisode.title,
       type: 'content',
-      externalIds: [], // MINT
+      externalIds: this.mintExternalIdsForPlex(server.name, plexEpisode),
       persisted: false,
       id: id,
       uniqueId: id,
@@ -159,7 +159,7 @@ export class ApiProgramMinter {
       summary: plexTrack.summary,
       title: plexTrack.title,
       type: 'content',
-      externalIds: [], // MINT
+      externalIds: this.mintExternalIdsForPlex(server.name, plexTrack),
       persisted: false,
       uniqueId: id,
       id,
@@ -204,7 +204,7 @@ export class ApiProgramMinter {
       seasonNumber: nullToUndefined(item.ParentIndexNumber),
       episodeNumber: nullToUndefined(item.IndexNumber),
       index: nullToUndefined(item.IndexNumber),
-      externalIds: [], // MINT
+      externalIds: this.mintExternalIdsForJellyfin(server.name, item),
       uniqueId: id,
       id,
       externalSourceName: server.name,
@@ -212,9 +212,8 @@ export class ApiProgramMinter {
     };
   }
 
-  mintExternalIds(
+  static mintExternalIds(
     serverName: string,
-    programId: string,
     originalProgram: ContentProgramOriginalProgram,
   ) {
     return match(originalProgram)
@@ -227,24 +226,16 @@ export class ApiProgramMinter {
       .exhaustive();
   }
 
-  mintExternalIdsForPlex(
+  static mintExternalIdsForPlex(
     serverName: string,
     media: PlexTerminalMedia,
   ): ExternalId[] {
-    const file = first(first(media.Media)?.Part ?? []);
+    // const file = first(first(media.Media)?.Part ?? []);
+    // TODO: add file details and stuff.
     const ratingId = {
       source: 'plex',
       id: media.ratingKey,
-      // uuid: v4(),
-      // createdAt: +dayjs(),
-      // updatedAt: +dayjs(),
-      // externalKey: media.ratingKey,
-      // sourceType: ProgramExternalIdType.PLEX,
       sourceId: serverName,
-      // programUuid: programId,
-      // externalSourceId: serverName,
-      // externalFilePath: file?.key,
-      // directFilePath: file?.file,
       type: 'multi',
     } satisfies ExternalId;
 
@@ -267,7 +258,7 @@ export class ApiProgramMinter {
     return [ratingId, guidId, ...externalGuids];
   }
 
-  mintJellyfinExternalId(serverName: string, media: JellyfinItem) {
+  static mintJellyfinExternalId(serverName: string, media: JellyfinItem) {
     return {
       // uuid: v4(),
       // createdAt: +dayjs(),
@@ -281,7 +272,7 @@ export class ApiProgramMinter {
     } satisfies ExternalId;
   }
 
-  mintExternalIdsForJellyfin(serverName: string, media: JellyfinItem) {
+  static mintExternalIdsForJellyfin(serverName: string, media: JellyfinItem) {
     const ratingId = this.mintJellyfinExternalId(serverName, media);
 
     const externalGuids = seq.collectMapValues(

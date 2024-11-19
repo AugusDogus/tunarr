@@ -300,15 +300,6 @@ class ProgramDaoMinter {
       });
     }
 
-    // const guidId = {
-    //   uuid: v4(),
-    //   createdAt: +dayjs(),
-    //   updatedAt: +dayjs(),
-    //   externalKey: program.guid,
-    //   sourceType: ProgramExternalIdType.PLEX_GUID,
-    //   programUuid: programId,
-    // } satisfies NewProgramExternalId;
-
     ids.push(
       ...seq.collect(program.externalIds, (eid) => {
         switch (eid.source) {
@@ -330,6 +321,22 @@ class ProgramDaoMinter {
     );
 
     return ids;
+  }
+
+  mintJellyfinExternalIdForApiItem(
+    serverName: string,
+    programId: string,
+    media: JellyfinItem,
+  ) {
+    return {
+      uuid: v4(),
+      createdAt: +dayjs(),
+      updatedAt: +dayjs(),
+      externalKey: media.Id,
+      sourceType: ProgramExternalIdType.JELLYFIN,
+      programUuid: programId,
+      externalSourceId: serverName,
+    } satisfies NewProgramExternalId;
   }
 
   mintJellyfinExternalIds(

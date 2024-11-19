@@ -9,7 +9,6 @@ import { ReconcileProgramDurationsTask } from '@/tasks/ReconcileProgramDurations
 import { Maybe } from '@/types/util.ts';
 import { groupByUniq, isDefined } from '@/util/index.ts';
 import { LoggerFactory } from '@/util/logging/LoggerFactory.ts';
-import { ApiProgramMinter } from '@tunarr/shared';
 import { JellyfinItem, JellyfinItemKind } from '@tunarr/types/jellyfin';
 import dayjs from 'dayjs';
 import { find, isUndefined, some } from 'lodash-es';
@@ -45,7 +44,7 @@ export class JellyfinItemFinder {
     );
 
     const minter = ProgramMinterFactory.create();
-    const newExternalId = ApiProgramMinter.mintJellyfinExternalIds(
+    const newExternalId = minter.mintJellyfinExternalIdForApiItem(
       program.externalSourceId,
       program.uuid,
       potentialApiMatch,

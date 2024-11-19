@@ -105,11 +105,25 @@ export class ProgramConverter {
           program.tvSeason?.index, // ?? program.seasonNumber,
         ),
         episodeNumber: nullToUndefined(program.episode),
-        episodeTitle: program.title,
-        title: nullToUndefined(program.tvShow?.title ?? program.showTitle),
+        title: program.title,
+        parent: {
+          id: nullToUndefined(program.tvSeason?.uuid ?? program.seasonUuid),
+          index: nullToUndefined(program.tvSeason?.index),
+          title: nullToUndefined(program.tvSeason?.title ?? program.showTitle),
+          year: nullToUndefined(program.tvSeason?.year),
+        },
+        grandparent: {
+          id: nullToUndefined(program.tvShow?.uuid ?? program.tvShowUuid),
+          index: nullToUndefined(program.tvShow?.index),
+          title: nullToUndefined(program.tvShow?.title),
+          // TODO:
+          // externalKey: nullToUndefined(program.tvSeason)
+          year: nullToUndefined(program.tvShow?.year),
+        },
+        // title: nullToUndefined(program.tvShow?.title ?? program.showTitle),
         index: nullToUndefined(program.episode),
-        parentIndex: nullToUndefined(program.tvSeason?.index),
-        grandparentIndex: nullToUndefined(program.tvShow?.index),
+        // parentIndex: nullToUndefined(program.tvSeason?.index),
+        // grandparentIndex: nullToUndefined(program.tvShow?.index),
       };
       // if (isEmpty(extraFields.showId)) {
       //   this.logger.warn(
@@ -119,16 +133,32 @@ export class ProgramConverter {
       // }
     } else if (program.type === ProgramType.Track.toString()) {
       extraFields = {
-        albumName: nullToUndefined(program.trackAlbum?.title),
-        artistName: nullToUndefined(program.trackArtist?.title),
+        parent: {
+          id: nullToUndefined(program.trackAlbum?.uuid ?? program.albumUuid),
+          index: nullToUndefined(program.trackAlbum?.index),
+          title: nullToUndefined(
+            program.albumName ?? program.trackAlbum?.title,
+          ),
+          year: nullToUndefined(program.trackAlbum?.year),
+        },
+        grandparent: {
+          id: nullToUndefined(program.trackArtist?.uuid ?? program.artistUuid),
+          index: nullToUndefined(program.trackArtist?.index),
+          title: nullToUndefined(program.trackArtist?.title),
+          // TODO:
+          // externalKey: nullToUndefined(program.tvSeason)
+          year: nullToUndefined(program.trackArtist?.year),
+        },
+        // albumName: nullToUndefined(program.trackAlbum?.title),
+        // artistName: nullToUndefined(program.trackArtist?.title),
         albumId: nullToUndefined(program.trackAlbum?.uuid ?? program.albumUuid),
         artistId: nullToUndefined(
           program.trackArtist?.uuid ?? program.artistUuid,
         ),
         // HACK: Tracks save their index under the episode field
         index: nullToUndefined(program.episode),
-        parentIndex: nullToUndefined(program.trackAlbum?.index),
-        grandparentIndex: nullToUndefined(program.trackArtist?.index),
+        // parentIndex: nullToUndefined(program.trackAlbum?.index),
+        // grandparentIndex: nullToUndefined(program.trackArtist?.index),
       };
     }
 

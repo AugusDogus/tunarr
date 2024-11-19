@@ -57,12 +57,14 @@ function sortProgram(
     case 'index': {
       let n = 1;
 
-      if (!isUndefined(p.seasonNumber)) {
-        n += p.seasonNumber * 1e4;
+      const seasonNumber = p.parent?.index ?? p.seasonNumber;
+      if (!isUndefined(seasonNumber)) {
+        n += seasonNumber * 1e4;
       }
 
-      if (!isUndefined(p.episodeNumber)) {
-        n += p.episodeNumber * 1e2;
+      const episodeNumber = p.index ?? p.episodeNumber;
+      if (!isUndefined(episodeNumber)) {
+        n += episodeNumber * 1e2;
       }
 
       return asc ? n : -n;

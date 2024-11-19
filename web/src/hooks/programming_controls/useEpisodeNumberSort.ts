@@ -35,7 +35,11 @@ export const sortPrograms = (
     .filter(isUIContentProgram)
     .filter((program) => program.subtype === 'episode')
     .orderBy(
-      ['showId', 'seasonNumber', 'episodeNumber'],
+      (p) => {
+        const seasonNumber = p.parent?.index ?? p.seasonNumber;
+        const episodeNumber = p.index ?? p.episodeNumber;
+        return [p.showId, seasonNumber, episodeNumber];
+      },
       [sortOrder, sortOrder, sortOrder],
     )
     .value();

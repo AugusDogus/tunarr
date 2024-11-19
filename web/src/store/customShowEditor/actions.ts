@@ -1,11 +1,11 @@
 import { emptyEntityEditor } from '@/store/entityEditor/util.ts';
+import { ApiProgramMinter } from '@tunarr/shared';
+import { CustomShow, CustomShowProgramming } from '@tunarr/types';
 import { findIndex, forEach, inRange, map, merge } from 'lodash-es';
-import { programMinter, zipWithIndex } from '../../helpers/util.ts';
+import { P, match } from 'ts-pattern';
+import { zipWithIndex } from '../../helpers/util.ts';
 import { AddedMedia } from '../../types/index.ts';
 import useStore from '../index.ts';
-
-import { CustomShow, CustomShowProgramming } from '@tunarr/types';
-import { P, match } from 'ts-pattern';
 
 export const addMediaToCurrentCustomShow = (programs: AddedMedia[]) =>
   useStore.setState(({ customShowEditor }) => {
@@ -14,13 +14,13 @@ export const addMediaToCurrentCustomShow = (programs: AddedMedia[]) =>
       const allNewPrograms = map(programs, (item) =>
         match(item)
           .with({ type: 'plex', media: P.select() }, (plexItem) =>
-            programMinter.mintProgram(
+            ApiProgramMinter.mintProgram(
               { id: plexItem.serverId, name: plexItem.serverName },
               { program: plexItem, sourceType: 'plex' },
             ),
           )
           .with({ type: 'jellyfin', media: P.select() }, (jfItem) =>
-            programMinter.mintProgram(
+            ApiProgramMinter.mintProgram(
               { id: jfItem.serverId, name: jfItem.serverName },
               { program: jfItem, sourceType: 'jellyfin' },
             ),

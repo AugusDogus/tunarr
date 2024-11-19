@@ -15,8 +15,6 @@ import {
   ContentProgram,
   isContentProgram,
 } from '@tunarr/types';
-import { JellyfinItem } from '@tunarr/types/jellyfin';
-import { PlexEpisode, PlexMusicTrack } from '@tunarr/types/plex';
 import dayjs from 'dayjs';
 import { CaseWhenBuilder } from 'kysely';
 import {
@@ -106,9 +104,9 @@ type MintedRawProgramInfo = {
   apiProgram: ValidatedContentProgram;
 };
 
-type NonMovieOriginalProgram =
-  | { sourceType: 'plex'; program: PlexEpisode | PlexMusicTrack }
-  | { sourceType: 'jellyfin'; program: JellyfinItem };
+// type NonMovieOriginalProgram =
+//   | { sourceType: 'plex'; program: PlexEpisode | PlexMusicTrack }
+//   | { sourceType: 'jellyfin'; program: JellyfinItem };
 
 type ContentProgramWithHierarchy = Omit<
   MarkRequired<ContentProgram, 'grandparent' | 'parent'>,
