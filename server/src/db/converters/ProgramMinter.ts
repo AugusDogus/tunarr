@@ -258,15 +258,15 @@ class ProgramDaoMinter {
   ) {
     return match(program)
       .with({ externalSourceType: 'plex' }, () =>
-        this.mintExternalIdsForPlex(serverName, programId, program),
+        this.mintPlexExternalIds(serverName, programId, program),
       )
       .with({ externalSourceType: 'jellyfin' }, () =>
-        this.mintExternalIdsForJellyfin(serverName, programId, program),
+        this.mintJellyfinExternalIds(serverName, programId, program),
       )
       .exhaustive();
   }
 
-  mintExternalIdsForPlex(
+  mintPlexExternalIds(
     serverName: string,
     programId: string,
     program: ContentProgram,
@@ -326,15 +326,13 @@ class ProgramDaoMinter {
           default:
             return null;
         }
-
-        return null;
       }),
     );
 
-    return [ratingId, guidId, ...externalGuids];
+    return ids;
   }
 
-  mintJellyfinExternalId(
+  mintJellyfinExternalIds(
     serverName: string,
     programId: string,
     program: ContentProgram,
