@@ -5,6 +5,7 @@ import { Lineup, LineupItem } from '@/db/derived_types/Lineup.ts';
 import { OpenDateTimeRange } from '@/types/OpenDateTimeRange.ts';
 import { Maybe } from '@/types/util.ts';
 import { binarySearchRange } from '@/util/binarySearch.ts';
+import dayjs from '@/util/dayjs.ts';
 import { LoggerFactory } from '@/util/logging/LoggerFactory.ts';
 import { Timer } from '@/util/perf.ts';
 import { makeLocalUrl } from '@/util/serverUtil.ts';
@@ -17,8 +18,7 @@ import {
   TvGuideProgram,
 } from '@tunarr/types';
 import retry from 'async-retry';
-import dayjs from 'dayjs';
-import duration, { Duration } from 'dayjs/plugin/duration.js';
+import { Duration } from 'dayjs/plugin/duration.js';
 import {
   compact,
   filter,
@@ -54,9 +54,8 @@ import {
   wait,
 } from '../util/index.ts';
 import { EventService } from './EventService.ts';
+import { OnDemandChannelService } from './OnDemandChannelService.ts';
 import { XmlTvWriter } from './XmlTvWriter.ts';
-
-dayjs.extend(duration);
 
 // LineupItem + optional index + startTime
 type GuideItem = {
@@ -66,6 +65,9 @@ type GuideItem = {
   index?: number;
   // Start time of the program in this guide generation
   startTimeMs: number;
+  // true if when the guide was generated, the item was
+  // paused
+  isPaused?: boolean;
 };
 
 export type TvGuideChannel = {
@@ -115,6 +117,9 @@ export class TVGuideService {
     eventService: EventService,
     private channelDB: ChannelDB,
     private programDB: ProgramDB,
+    private onDemandService: OnDemandChannelService = new OnDemandChannelService(
+      channelDB,
+    ),
   ) {
     this.cachedGuide = {};
     this.lastUpdateTime = 0;
@@ -157,7 +162,7 @@ export class TVGuideService {
     channelId?: string,
   ) {
     try {
-      const now = new Date().getTime();
+      const now = +dayjs.tz();
       if (
         force ||
         (this.lastUpdateTime < now && this.currentUpdateTime === -1)
@@ -287,10 +292,10 @@ export class TVGuideService {
     );
   }
 
-  private getCurrentPlayingIndex(
+  private async getCurrentPlayingIndex(
     { channel, lineup }: ChannelWithLineup,
     currentUpdateTimeMs: number,
-  ): GuideItem {
+  ): Promise<GuideItem> {
     const channelStartTime = new Date(channel.startTime).getTime();
     if (currentUpdateTimeMs < channelStartTime) {
       //it's flex time
@@ -322,17 +327,37 @@ export class TVGuideService {
       }
 
       // How many ms we are "into" the current channel cycle
-      const channelProgress =
+      let channelProgress =
         (currentUpdateTimeMs - channelStartTime) % channel.duration;
 
       // The timestamp of the start of this cycle
       const startOfCycle = currentUpdateTimeMs - channelProgress;
 
       // Binary search for the currently playing program
-      const targetIndex =
+      let targetIndex =
         accumulate.length === 1
           ? 0
           : binarySearchRange(accumulate, channelProgress);
+
+      if (
+        isNull(targetIndex) &&
+        (await this.channelDB.syncChannelDuration(channel.uuid))
+      ) {
+        const updatedChannel = await this.channelDB
+          .loadChannelWithProgamsAndLineup(channel.uuid)
+          .then((v) => v!);
+        this.logger.warn(
+          'Actual channel duration (%d) is not equal to stored duration (%d)',
+          updatedChannel.channel.duration,
+          channel.duration,
+        );
+        this.channelsById[channel.uuid] = updatedChannel;
+        channel = updatedChannel.channel;
+        lineup = updatedChannel.lineup;
+        channelProgress =
+          (currentUpdateTimeMs - channelStartTime) % channel.duration;
+        targetIndex = binarySearchRange(accumulate, channelProgress);
+      }
 
       if (
         isNull(targetIndex) ||
@@ -345,24 +370,6 @@ export class TVGuideService {
       }
 
       const lineupItem = lineup.items[targetIndex];
-      // let lineupProgram =
-      //   this.programConverter.directLineupItemToChannelProgram(
-      //     channel,
-      //     lineupItem,
-      //     map(values(this.channelsById), ({ channel }) => channel),
-      //   );
-
-      // if (isNull(lineupProgram)) {
-      //   this.logger.warn(
-      //     'Unable to convert lineup item to guide item: %O',
-      //     lineupItem,
-      //   );
-      //   lineupProgram = {
-      //     type: 'flex',
-      //     duration: lineupItem.durationMs,
-      //     persisted: false,
-      //   };
-      // }
 
       return {
         index: targetIndex,
@@ -395,18 +402,6 @@ export class TVGuideService {
       // the schedule.
       const index = (previousProgram.index + 1) % lineup.items.length;
       const lineupItem = lineup.items[index];
-      // const program = this.programConverter.directLineupItemToChannelProgram(
-      //   channel,
-      //   lineupItem,
-      //   map(values(this.channelsById), ({ channel }) => channel),
-      // );
-
-      // if (isNull(program)) {
-      //   this.logger.warn(
-      //     'Was unable to convert lineup item to guide item: %O',
-      //     lineupItem,
-      //   );
-      // }
 
       playing = {
         index,
@@ -414,7 +409,7 @@ export class TVGuideService {
         startTimeMs: currentUpdateTimeMs,
       };
     } else {
-      playing = this.getCurrentPlayingIndex(
+      playing = await this.getCurrentPlayingIndex(
         channelWithLineup,
         currentUpdateTimeMs,
       );
@@ -485,6 +480,13 @@ export class TVGuideService {
         }
       }
     }
+
+    if (channelWithLineup.lineup?.onDemandConfig?.state === 'paused') {
+      console.log('STILL SEEING THIS AS PAUSED!!!');
+      playing.isPaused = true;
+      playing.lineupItem.durationMs = this.currentEndTime - currentUpdateTimeMs;
+    }
+
     return playing;
   }
 
@@ -596,6 +598,10 @@ export class TVGuideService {
       currentProgram.startTimeMs + currentProgram.lineupItem.durationMs;
     while (currentProgram.startTimeMs < currentEndTimeMs) {
       await push(currentProgram);
+      if (currentProgram.isPaused) {
+        break;
+      }
+
       const lastProgram = currentProgram;
       currentProgram = await this.getChannelPlaying(
         channelWithLineup,
@@ -786,8 +792,21 @@ export class TVGuideService {
     } else {
       for (const { channel, lineup } of values(channelsToUpdate)) {
         if (!channel.stealth) {
+          let updateTime = currentUpdateTimeMs;
+          // On-demand channels have to generate their guides differently.
+          if (lineup.onDemandConfig) {
+            if (lineup.onDemandConfig.state === 'paused') {
+              updateTime = channel.startTime + lineup.onDemandConfig.cursor;
+            } else {
+              updateTime = await this.onDemandService.getLiveTimestamp(
+                channel.uuid,
+                updateTime,
+              );
+            }
+          }
+
           const programs = await this.getChannelPrograms(
-            currentUpdateTimeMs,
+            updateTime,
             this.currentEndTime,
             { channel, lineup },
           );
@@ -944,6 +963,7 @@ export class TVGuideService {
       stop: guideItem.startTimeMs + guideItem.lineupItem.durationMs,
       persisted: true,
       duration: guideItem.lineupItem.durationMs,
+      isPaused: guideItem.isPaused ?? false,
     } as const;
 
     if (isNull(materializedItem)) {
@@ -959,7 +979,7 @@ export class TVGuideService {
       ? channel.icon.path
       : makeLocalUrl('/images/tunarr.png');
 
-    return match(materializedItem)
+    const program = match(materializedItem)
       .returnType<TvGuideProgram>()
       .with({ type: 'flex' }, (flex) => ({
         ...baseItem,
@@ -988,6 +1008,13 @@ export class TVGuideService {
           ? channel.guideFlexTitle
           : channel.name,
       }));
+
+    if (guideItem.isPaused && program.type === 'content') {
+      program.title += ' (paused)';
+      program.isPaused = true;
+    }
+
+    return program;
   }
 
   private materializeGuideItem(

@@ -46,6 +46,7 @@ import {
   partition,
   reduce,
   reject,
+  sum,
   sumBy,
   take,
   uniq,
@@ -98,7 +99,10 @@ import {
 } from './schema/Channel.ts';
 import { programExternalIdString } from './schema/Program.ts';
 import { ChannelTranscodingSettings } from './schema/base.ts';
-import { ChannelWithPrograms as RawChannelWithPrograms } from './schema/derivedTypes.js';
+import {
+  ChannelWithPrograms,
+  ChannelWithPrograms as RawChannelWithPrograms,
+} from './schema/derivedTypes.js';
 
 dayjs.extend(duration);
 
@@ -506,6 +510,24 @@ export class ChannelDB {
       .where('channel.uuid', '=', id)
       .set('startTime', newTime)
       .executeTakeFirst();
+  }
+
+  async syncChannelDuration(id: string) {
+    const channelAndLineup = await this.loadChannelAndLineup(id);
+    if (!channelAndLineup) {
+      return false;
+    }
+    const { channel, lineup } = channelAndLineup;
+    const lineupDuration = sum(map(lineup.items, (item) => item.durationMs));
+    if (lineupDuration !== channel.duration) {
+      await getDatabase()
+        .updateTable('channel')
+        .where('channel.uuid', '=', id)
+        .set('duration', lineupDuration)
+        .executeTakeFirst();
+      return true;
+    }
+    return false;
   }
 
   async deleteChannel(
@@ -936,8 +958,10 @@ export class ChannelDB {
     };
   }
 
-  async loadDirectChannelAndLineup(channelId: string) {
-    const channel = await this.getChannel(channelId);
+  async loadChannelWithProgamsAndLineup(
+    channelId: string,
+  ): Promise<{ channel: ChannelWithPrograms; lineup: Lineup } | null> {
+    const channel = await this.getChannelAndPrograms(channelId);
     if (isNil(channel)) {
       return null;
     }

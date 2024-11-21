@@ -6,7 +6,7 @@ import { ChannelLineupQuery } from '@tunarr/types/api';
 import { ChannelLineupSchema } from '@tunarr/types/schemas';
 import dayjs from 'dayjs';
 import { jsonArrayFrom } from 'kysely/helpers/sqlite';
-import { map, reject, some } from 'lodash-es';
+import { isUndefined, map, reject, some } from 'lodash-es';
 import os from 'node:os';
 import z from 'zod';
 
@@ -41,30 +41,48 @@ export const debugApi: RouterPluginAsyncCallback = async (fastify) => {
     });
 
   fastify.get(
-    '/debug/helpers/current_program',
+    '/debug/helpers/playing_at',
     {
-      schema: ChannelQuerySchema,
+      schema: {
+        querystring: ChannelQuerySchema.querystring.extend({
+          ts: z.coerce.number().optional(),
+        }),
+      },
     },
     async (req, res) => {
-      const channel = await req.serverCtx.channelDB.getChannelAndPrograms(
-        req.query.channelId,
-      );
+      const channelAndLineup =
+        await req.serverCtx.channelDB.loadChannelAndLineup(req.query.channelId);
 
-      if (!channel) {
+      if (!channelAndLineup) {
         return res
           .status(404)
           .send({ error: 'No channel with ID ' + req.query.channelId });
       }
 
-      const result = req.serverCtx
+      const { channel, lineup } = channelAndLineup;
+
+      if (
+        lineup.onDemandConfig?.state === 'paused' &&
+        isUndefined(req.query.ts)
+      ) {
+        req.query.ts = channel.startTime + lineup.onDemandConfig.cursor;
+      }
+
+      const result = await req.serverCtx
         .streamProgramCalculator()
         .getCurrentLineupItem({
-          startTime: new Date().getTime(),
+          startTime: req.query.ts ?? +dayjs(),
           channelId: req.query.channelId,
           allowSkip: true,
         });
 
-      return res.send(result);
+      return result
+        .map((lineupItem) => {
+          return res.send(lineupItem);
+        })
+        .getOrElse(() => {
+          return res.status(500).send();
+        });
     },
   );
 

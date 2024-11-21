@@ -128,6 +128,9 @@ export class SessionManager {
 
   cleanupStaleSessions() {
     for (const session of Object.values(this.#sessions)) {
+      if (session.state === 'starting') {
+        continue;
+      }
       if (session.isStale() && session.scheduleCleanup()) {
         this.#logger.debug(
           { sessionType: session.sessionType, id: session.id },
@@ -268,7 +271,7 @@ export class SessionManager {
             }
           });
 
-          if (this.getAllSessionsForChannel(channelId).length === 0) {
+          if (this.getAllSessionsForChannel(channelId).length > 0) {
             this.resumeChannelIfNecessary(channelId);
           }
         }
@@ -310,6 +313,11 @@ export class SessionManager {
   }
 
   private resumeChannelIfNecessary(channelId: string) {
+    this.#logger.debug(
+      'Resuming channel %s at %s',
+      channelId,
+      dayjs().format(),
+    );
     this.onDemandChannelService.resumeChannel(channelId).catch((e) => {
       this.#logger.error(e, 'Error resuming on-demand channel %s', channelId);
     });
@@ -344,6 +352,11 @@ export class SessionManager {
       // Pause the channel as soon as there are no connections
       // other than internal connections
       if (nonTunarrConnections === 0) {
+        this.#logger.debug(
+          'Pausing channel %s after disconnect. Pause time = %s',
+          session.keyObj.id,
+          dayjs(pauseTime).format(),
+        );
         await this.onDemandChannelService.pauseChannel(
           session.keyObj.id,
           pauseTime,
