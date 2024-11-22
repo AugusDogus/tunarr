@@ -291,7 +291,7 @@ export function TvGuide({ channelId, start, end }: Props) {
     lineup: TvGuideProgram[],
   ) => {
     const title = forTvGuideProgram({
-      content: (p) => p.title,
+      content: (p) => p.grandparent?.title ?? p.title,
       custom: (p) => p.program?.title ?? 'Custom Program',
       redirect: (p) => `Redirect to Channel ${p.channel}`,
       flex: 'Flex',
