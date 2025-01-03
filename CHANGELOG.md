@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.17.0](https://github.com/chrisbenincasa/tunarr/compare/v0.16.13...v0.17.0) (2025-01-03)
+
+
+### Features
+
+* add "transcode configurations" ([#1001](https://github.com/chrisbenincasa/tunarr/issues/1001)) ([b5a4fdf](https://github.com/chrisbenincasa/tunarr/commit/b5a4fdf9bbd2e96249b3d93552a394ded1a1eb48))
+* support for toggling between 12/24-hour time in UI ([#1026](https://github.com/chrisbenincasa/tunarr/issues/1026)) ([891ed29](https://github.com/chrisbenincasa/tunarr/commit/891ed296fb4794ba4ab164850bcf3c70c8f93825))
+
+
+### Bug Fixes
+
+* allow setting channel stream mode on initial creation ([2f39648](https://github.com/chrisbenincasa/tunarr/commit/2f39648a5a0ee241ab79aa3d370c410d0417caed))
+* choose default/selected audio streams first ([732e81d](https://github.com/chrisbenincasa/tunarr/commit/732e81d28657d6e433402efb42db5d7a5d84e4bb))
+* cyclic shuffle now works with custom programs ([1a106a4](https://github.com/chrisbenincasa/tunarr/commit/1a106a4f0c3c0fa1b39b6fb8c94e32dc6b933a89))
+* do not count initializing sessions in stale check ([ca0ec6a](https://github.com/chrisbenincasa/tunarr/commit/ca0ec6a92b002b7f0e43e36bc6fbb3ab38d81f35))
+* fix default audio stream sort for boolean ([b298be3](https://github.com/chrisbenincasa/tunarr/commit/b298be3b6e963a225f79b0b8cd4a26fc6e714436))
+* fix JF streams + local watermark file inputs on legacy ffmpeg pipeline ([c6d07c8](https://github.com/chrisbenincasa/tunarr/commit/c6d07c88a48c726de282645511208565ade63e35))
+* further delineate between selected and default audio streams for plex ([43f9ffc](https://github.com/chrisbenincasa/tunarr/commit/43f9ffc7285e4cae5d6f397f50996a9ce578d5b7))
+* pick random start position for each group in cyclic shuffle ([e2d6c03](https://github.com/chrisbenincasa/tunarr/commit/e2d6c03d33bc8d5abc562072303a06a3ae0fc334))
+* use stream.selected over stream.default for plex audio streams ([1a8afb6](https://github.com/chrisbenincasa/tunarr/commit/1a8afb63edf7fffd4a4d71f66c16d02cf8e2f2b7))
+
 ## [0.16.13](https://github.com/chrisbenincasa/tunarr/compare/v0.16.12...v0.16.13) (2024-12-18)
 
 
